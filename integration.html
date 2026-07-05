@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Integration FI-SD / FI-MM – Global Bike ERP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<!-- sidebar wird von renderNav() eingefügt -->
+<div id="main">
+
+  <div class="topbar">
+    <span class="topbar-title">Integration</span>
+    <span class="topbar-badge">FI ↔ SD / FI ↔ MM</span>
+    <div class="topbar-spacer"></div>
+    <span class="topbar-date" id="topbar-date"></span>
+  </div>
+
+  <div class="content">
+
+    <div class="alert alert-info" style="margin-bottom:24px;">
+      Diese Seite simuliert die automatische Kontierung aus den vorgelagerten Modulen
+      Vertrieb (SD) und Einkauf (MM) in die Finanzbuchhaltung (FI). Jeder Button bucht
+      den <strong>vollständigen Prozess</strong> in einem Schritt (Geschäftsfall wird
+      automatisch angelegt). Testdaten aus dem DataLoader: Debitor
+      <strong>„Rocky Mountain Bikes"</strong> ist dem Kreditkontrollbereich
+      <strong>GB00</strong> mit Kreditlimit <strong>50.000,00 €</strong> zugeordnet –
+      damit lässt sich die Kreditlimit-Sperre direkt hier testen.
+    </div>
+
+    <!-- ══ FI-SD (VERTRIEB) ══ -->
+    <div class="section-head">
+      <h2>FI ↔ SD · Vertrieb</h2>
+      <div class="line"></div>
+      <span class="hint">Faktura (Forderungen/Umsatz) + Zahlungseingang (Bank/Forderungen) · inkl. Kreditlimit-Prüfung</span>
+    </div>
+
+    <div class="form-card">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Kunde</label>
+          <select id="sd-kunde">
+            <option value="">— Kunde laden… —</option>
+          </select>
+          <span id="sd-kunde-hinweis" style="font-size:12px; color:var(--ink-faint); margin-top:2px;"></span>
+        </div>
+        <div class="form-group">
+          <label>Betrag (EUR)</label>
+          <input type="number" id="sd-betrag" placeholder="z.B. 12000.00" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>Erfasst von</label>
+          <input type="text" id="sd-von" value="Integration">
+        </div>
+      </div>
+      <div style="margin-top:16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="sdVollstaendig()">✦ Vollständigen Verkaufsprozess buchen</button>
+        <button class="btn btn-outline" onclick="clearSd()">Zurücksetzen</button>
+        <span style="font-size:12px; color:var(--ink-faint);">Bucht Faktura + Zahlungseingang · legt automatisch einen Geschäftsfall (VERKAUF) an</span>
+      </div>
+      <div id="sd-result" class="nlp-result"></div>
+    </div>
+
+    <!-- ══ FI-MM (EINKAUF) ══ -->
+    <div class="section-head" style="margin-top:8px;">
+      <h2>FI ↔ MM · Einkauf</h2>
+      <div class="line"></div>
+      <span class="hint">Wareneingang (Materialaufwand/Verbindlichkeiten) + Zahlungsausgang (Verbindlichkeiten/Bank)</span>
+    </div>
+
+    <div class="form-card">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Lieferant</label>
+          <select id="mm-lieferant">
+            <option value="">— Lieferant laden… —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Betrag (EUR)</label>
+          <input type="number" id="mm-betrag" placeholder="z.B. 2500.00" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>Erfasst von</label>
+          <input type="text" id="mm-von" value="Integration">
+        </div>
+      </div>
+      <div style="margin-top:16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="mmVollstaendig()">✦ Vollständigen Einkaufsprozess buchen</button>
+        <button class="btn btn-outline" onclick="clearMm()">Zurücksetzen</button>
+        <span style="font-size:12px; color:var(--ink-faint);">Bucht Wareneingang + Zahlungsausgang · legt automatisch einen Geschäftsfall (EINKAUF) an</span>
+      </div>
+      <div id="mm-result" class="nlp-result"></div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<script src="js/nav.js"></script>
+<script>
+renderNav('integration.html');
+document.getElementById('topbar-date').textContent = new Date().toLocaleDateString('de-DE', {
+  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+});
+
+// ── DROPDOWNS: echte Kunden/Lieferanten statt Freitext ──────────
+// Verhindert Tippfehler im Partnername (z.B. Ansprechpartner statt
+// Firmenname), die sonst die Kreditlimit-Prüfung stillschweigend
+// umgehen würden (siehe FiSdIntegrationService.findeKundeOderWirf).
+
+async function ladeSdKundenDropdown() {
+  const sel = document.getElementById('sd-kunde');
+  try {
+    const kunden = await api('/api/stammdaten/kunden');
+    if (!kunden.length) {
+      sel.innerHTML = '<option value="">— Keine Kunden angelegt —</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">— Bitte Kunde wählen —</option>' +
+      kunden.map(k => {
+        const kkb = k.kreditkontrollbereich;
+        const kkbText = kkb
+          ? ` · KKB ${kkb.kkbNr} · Limit ${fmtMoney(kkb.kreditlimit)}`
+          : ' · kein Kreditkontrollbereich';
+        return `<option value="${k.firmenname.replace(/"/g, '&quot;')}">${k.firmenname}${kkbText}</option>`;
+      }).join('');
+    sel.onchange = () => {
+      const gewaehlt = kunden.find(k => k.firmenname === sel.value);
+      const hinweis = document.getElementById('sd-kunde-hinweis');
+      if (gewaehlt && gewaehlt.kreditkontrollbereich) {
+        hinweis.textContent =
+          `Kreditkontrollbereich ${gewaehlt.kreditkontrollbereich.kkbNr} · Kreditlimit ${fmtMoney(gewaehlt.kreditkontrollbereich.kreditlimit)}`;
+      } else if (gewaehlt) {
+        hinweis.textContent = 'Kein Kreditkontrollbereich zugeordnet – Faktura wird ohne Limit-Prüfung gebucht.';
+      } else {
+        hinweis.textContent = '';
+      }
+    };
+  } catch (e) {
+    sel.innerHTML = '<option value="">— Fehler beim Laden —</option>';
+    toast(e.message, 'error');
+  }
+}
+
+async function ladeMmLieferantenDropdown() {
+  const sel = document.getElementById('mm-lieferant');
+  try {
+    const lieferanten = await api('/api/stammdaten/lieferanten');
+    if (!lieferanten.length) {
+      sel.innerHTML = '<option value="">— Keine Lieferanten angelegt —</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">— Bitte Lieferant wählen —</option>' +
+      lieferanten.map(l =>
+        `<option value="${l.firmenname.replace(/"/g, '&quot;')}">${l.firmenname} · Abstimmkonto ${l.abstimmkonto ?? 400000}</option>`
+      ).join('');
+  } catch (e) {
+    sel.innerHTML = '<option value="">— Fehler beim Laden —</option>';
+    toast(e.message, 'error');
+  }
+}
+
+ladeSdKundenDropdown();
+ladeMmLieferantenDropdown();
+
+// ── FI-SD ────────────────────────────────────────────────────
+async function sdVollstaendig() {
+  const kunde  = document.getElementById('sd-kunde').value.trim();
+  const betrag = document.getElementById('sd-betrag').value;
+  const von    = document.getElementById('sd-von').value.trim() || 'Integration';
+
+  if (!kunde || !betrag) { toast('Kunde und Betrag sind Pflichtfelder', 'error'); return; }
+
+  const res = document.getElementById('sd-result');
+  res.className = 'nlp-result show';
+  res.innerHTML = '<span class="loading"></span> Buche Verkaufsprozess...';
+
+  try {
+    const data = await api('/api/integration/sd/vollstaendig', 'POST', {
+      partnername: kunde,
+      betrag: parseFloat(betrag),
+      erfasstVon: von,
+    });
+    res.innerHTML =
+      `<div style="color:var(--green); font-weight:600; margin-bottom:10px;">✓ Verkaufsprozess erfolgreich gebucht</div>` +
+      renderProzess(data);
+    toast('SD-Verkaufsprozess gebucht', 'success');
+  } catch (e) {
+    res.innerHTML = `<div style="color:var(--red); font-weight:600;">✗ ${e.message}</div>` +
+      (e.message.toLowerCase().includes('kreditlimit')
+        ? `<div style="margin-top:8px; font-size:12px; color:var(--ink-faint);">Die Faktura wurde bewusst NICHT gebucht – der Kreditkontrollbereich hat die Buchung gesperrt.</div>`
+        : '');
+    toast(e.message, 'error');
+  }
+}
+
+function clearSd() {
+  document.getElementById('sd-kunde').value = '';
+  document.getElementById('sd-kunde-hinweis').textContent = '';
+  document.getElementById('sd-betrag').value = '';
+  document.getElementById('sd-von').value = 'Integration';
+  const res = document.getElementById('sd-result');
+  res.className = 'nlp-result';
+  res.innerHTML = '';
+}
+
+// ── FI-MM ────────────────────────────────────────────────────
+async function mmVollstaendig() {
+  const lieferant = document.getElementById('mm-lieferant').value.trim();
+  const betrag    = document.getElementById('mm-betrag').value;
+  const von       = document.getElementById('mm-von').value.trim() || 'Integration';
+
+  if (!lieferant || !betrag) { toast('Lieferant und Betrag sind Pflichtfelder', 'error'); return; }
+
+  const res = document.getElementById('mm-result');
+  res.className = 'nlp-result show';
+  res.innerHTML = '<span class="loading"></span> Buche Einkaufsprozess...';
+
+  try {
+    const data = await api('/api/integration/mm/vollstaendig', 'POST', {
+      partnername: lieferant,
+      betrag: parseFloat(betrag),
+      erfasstVon: von,
+    });
+    res.innerHTML =
+      `<div style="color:var(--green); font-weight:600; margin-bottom:10px;">✓ Einkaufsprozess erfolgreich gebucht</div>` +
+      renderProzess(data);
+    toast('MM-Einkaufsprozess gebucht', 'success');
+  } catch (e) {
+    res.innerHTML = `<div style="color:var(--red); font-weight:600;">✗ ${e.message}</div>`;
+    toast(e.message, 'error');
+  }
+}
+
+function clearMm() {
+  document.getElementById('mm-lieferant').value = '';
+  document.getElementById('mm-betrag').value = '';
+  document.getElementById('mm-von').value = 'Integration';
+  const res = document.getElementById('mm-result');
+  res.className = 'nlp-result';
+  res.innerHTML = '';
+}
+
+// ── GEMEINSAME ERGEBNIS-DARSTELLUNG ────────────────────────────
+function renderProzess(data) {
+  let html = `
+    <div class="nlp-prop"><span class="nlp-key">Geschäftsfall-ID</span><span class="nlp-val">${data.geschaeftsfallId ?? '—'}</span></div>
+    <div class="nlp-prop"><span class="nlp-key">Partner</span><span class="nlp-val">${data.kunde || data.lieferant || '—'}</span></div>
+    <div class="nlp-prop"><span class="nlp-key">Gesamtbetrag</span><span class="nlp-val">${eur(data.gesamtbetrag)}</span></div>
+    <div class="nlp-prop"><span class="nlp-key">Nettoeffekt</span><span class="nlp-val">${data.nettoeffekt || '—'}</span></div>`;
+
+  (data.schritte || []).forEach((schritt, i) => {
+    html += `<hr style="border:none;border-top:1px solid var(--line);margin:10px 0;">`;
+    html += `<div class="nlp-prop"><span class="nlp-key">Schritt ${i + 1}</span><span class="nlp-val">${schritt.typ || '—'} · ${schritt.status || ''}</span></div>`;
+    html += `<div class="nlp-prop"><span class="nlp-key">Buchungstext</span><span class="nlp-val">${schritt.buchungstext || ''}</span></div>`;
+    if (schritt.rechnungId != null) {
+      const statusFarbe = schritt.rechnungStatus === 'BEZAHLT' ? 'var(--green)'
+        : schritt.rechnungStatus === 'UEBERFAELLIG' ? 'var(--red)' : 'var(--ink)';
+      html += `<div class="nlp-prop"><span class="nlp-key">Rechnung (offener Posten)</span><span class="nlp-val">Nr. ${schritt.rechnungId} · <span style="color:${statusFarbe}; font-weight:600;">${schritt.rechnungStatus}</span></span></div>`;
+      if (schritt.faelligkeit) {
+        html += `<div class="nlp-prop"><span class="nlp-key">Fälligkeit</span><span class="nlp-val">${schritt.faelligkeit}</span></div>`;
+      }
+    }
+    (schritt.buchungen || []).forEach(b => {
+      html += `<div class="nlp-prop"><span class="nlp-key">${b.sollHaben}</span><span class="nlp-val">Beleg ${b.belegnummer} · ${b.konto}</span></div>`;
+    });
+    if (schritt.hinweis) {
+      html += `<div class="nlp-prop"><span class="nlp-key">Hinweis</span><span class="nlp-val">${schritt.hinweis}</span></div>`;
+    }
+  });
+
+  return html;
+}
+</script>
+</body>
+</html>
