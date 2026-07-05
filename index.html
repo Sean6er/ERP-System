@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Global Bike ERP · Finanzwesen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- Sidebar wird jetzt einheitlich von renderNav() (js/nav.js) eingefügt,
+     genau wie auf stammdaten.html / orgstruktur.html / integration.html.
+     Das stellt sicher, dass hier immer ALLE Menüpunkte (inkl. Integration)
+     auftauchen, unabhängig davon, welche Seite zuerst besucht wurde. -->
+
+<!-- ── MAIN ── -->
+<div id="main">
+  <div class="topbar">
+    <span class="topbar-title" id="topbar-title">Dashboard</span>
+    <span class="topbar-badge" id="topbar-badge">Übersicht</span>
+    <div class="topbar-spacer"></div>
+    <span class="topbar-date" id="topbar-date"></span>
+  </div>
+
+  <div class="content">
+
+    <!-- ══ DASHBOARD ══ -->
+    <div id="view-dashboard" class="view active">
+      <div class="welcome-banner">
+        <div class="welcome-text">
+          <h1>Finanzwesen · FI</h1>
+          <p>SAP-inspiriertes ERP-System · Doppelte Buchführung · GoBD-konform</p>
+          <span class="welcome-badge">Buchungskreis DE00</span>
+        </div>
+      </div>
+
+      <div class="stat-grid" id="dashboard-stats">
+        <div class="stat-card">
+          <div class="stat-label">Aktiva gesamt</div>
+          <div class="stat-value mono" id="d-aktiva">—</div>
+          <div class="stat-sub">EUR</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-label">Passiva gesamt</div>
+          <div class="stat-value mono" id="d-passiva">—</div>
+          <div class="stat-sub">EUR</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">Umsatzerlöse</div>
+          <div class="stat-value mono positive" id="d-erloes">—</div>
+          <div class="stat-sub">EUR</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-label">Aufwendungen</div>
+          <div class="stat-value mono negative" id="d-aufwand">—</div>
+          <div class="stat-sub">EUR</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Jahresergebnis</div>
+          <div class="stat-value mono" id="d-ergebnis">—</div>
+          <div class="stat-sub" id="d-ergebnis-typ">EUR</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Kassenbestand</div>
+          <div class="stat-value mono" id="d-kasse">—</div>
+          <div class="stat-sub">EUR · Bank</div>
+        </div>
+      </div>
+
+      <div class="section-head">
+        <h2>Letzte Buchungen</h2>
+        <div class="line"></div>
+        <span class="hint">Journal · aktive Belege</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Belegnr.</th>
+              <th>Datum</th>
+              <th>Betrag (EUR)</th>
+              <th>S/H</th>
+              <th>Konto</th>
+              <th>Text</th>
+            </tr>
+          </thead>
+          <tbody id="dashboard-journal">
+            <tr><td colspan="6" class="empty"><span class="loading"></span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ NEUE BUCHUNG ══ -->
+    <div id="view-buchung-neu" class="view">
+      <div class="section-head"><h2>Buchungssatz erfassen</h2><div class="line"></div><span class="hint">Doppelte Buchführung · Soll / Haben</span></div>
+      <div class="form-card">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Sollkonto-Nr.</label>
+            <input type="number" id="b-soll" placeholder="z.B. 750000" />
+          </div>
+          <div class="form-group">
+            <label>Habenkonto-Nr.</label>
+            <input type="number" id="b-haben" placeholder="z.B. 100000" />
+          </div>
+          <div class="form-group">
+            <label>Buchungskreis</label>
+            <select id="b-buchungskreis">
+              <option value="">— Standard (DE00) —</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Betrag (EUR)</label>
+            <input type="number" id="b-betrag" placeholder="0.00" step="0.01" />
+          </div>
+          <div class="form-group">
+            <label>Buchungsdatum</label>
+            <input type="date" id="b-datum" />
+          </div>
+          <div class="form-group full">
+            <label>Buchungstext</label>
+            <input type="text" id="b-text" placeholder="Beschreibung des Geschäftsvorfalls" />
+          </div>
+          <div class="form-group">
+            <label>Erfasst von</label>
+            <input type="text" id="b-von" value="Buchhalter" />
+          </div>
+          <div class="form-group">
+            <label>Rechnungs-ID (optional)</label>
+            <input type="number" id="b-rechnung" placeholder="—" />
+          </div>
+        </div>
+        <div style="margin-top:20px; display:flex; gap:10px; align-items:center;">
+          <button class="btn btn-primary" onclick="buchungAnlegen()">✦ Buchung speichern</button>
+          <button class="btn btn-outline" onclick="formReset()">Zurücksetzen</button>
+        </div>
+        <div id="buchung-result" style="margin-top:16px;"></div>
+      </div>
+
+      <div class="section-head" style="margin-top:8px;"><h2>Referenz-Konten</h2><div class="line"></div></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Kontonr.</th><th>Bezeichnung</th><th>Typ</th><th>Saldo (EUR)</th></tr>
+          </thead>
+          <tbody id="ref-konten">
+            <tr><td colspan="4" class="empty"><span class="loading"></span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ JOURNAL ══ -->
+    <div id="view-journal" class="view">
+      <div class="section-head"><h2>Buchungsjournal</h2><div class="line"></div><span class="hint">Alle aktiven Belege · GoBD-konform</span></div>
+
+      <!-- ÄNDERUNG: Buchungskreis-Filter ergänzt. Ohne Auswahl = globales
+           Journal (bisheriges Verhalten). Kombinierbar mit dem
+           Zeitraum-Filter. -->
+      <div style="display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; align-items:flex-end;">
+        <div class="form-group" style="flex:0 0 150px;">
+          <label>Von</label>
+          <input type="date" id="j-von" />
+        </div>
+        <div class="form-group" style="flex:0 0 150px;">
+          <label>Bis</label>
+          <input type="date" id="j-bis" />
+        </div>
+        <div class="form-group" style="flex:0 0 220px;">
+          <label>Buchungskreis</label>
+          <select id="j-bukrs" onchange="ladeJournal()">
+            <option value="">— Alle (global) —</option>
+          </select>
+        </div>
+        <button class="btn btn-outline" onclick="ladeZeitraum()">Zeitraum filtern</button>
+        <button class="btn btn-outline" onclick="ladeJournal()">Alle anzeigen</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="sortable" data-sort-table="journal" data-sort-path="belegnummer" onclick="sortTable('journal','belegnummer', journalRows, renderJournal)">Belegnr.</th>
+              <th class="sortable" data-sort-table="journal" data-sort-path="buchungsdatum" onclick="sortTable('journal','buchungsdatum', journalRows, renderJournal)">Datum</th>
+              <th class="sortable" data-sort-table="journal" data-sort-path="betrag" onclick="sortTable('journal','betrag', journalRows, renderJournal)">Betrag (EUR)</th>
+              <th class="sortable" data-sort-table="journal" data-sort-path="sollHaben" onclick="sortTable('journal','sollHaben', journalRows, renderJournal)">S/H</th>
+              <th class="sortable" data-sort-table="journal" data-sort-path="buchungskreis.buchungskreisNr" onclick="sortTable('journal','buchungskreis.buchungskreisNr', journalRows, renderJournal)">Buchungskreis</th>
+              <th class="sortable" data-sort-table="journal" data-sort-path="konto.kontonummer" onclick="sortTable('journal','konto.kontonummer', journalRows, renderJournal)">Konto</th>
+              <th>Text</th>
+              <th class="sortable" data-sort-table="journal" data-sort-path="erfasstVon" onclick="sortTable('journal','erfasstVon', journalRows, renderJournal)">Erfasst von</th>
+              <th>Aktion</th>
+            </tr>
+          </thead>
+          <tbody id="journal-body">
+            <tr><td colspan="9" class="empty"><span class="loading"></span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ KONTEN ══ -->
+    <div id="view-konten" class="view">
+      <div class="section-head"><h2>Kontenübersicht</h2><div class="line"></div><span class="hint">Kontenplan GL00 · Sachkonten</span></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="sortable" data-sort-table="konten-uebersicht" data-sort-path="kontonummer" onclick="sortTable('konten-uebersicht','kontonummer', kontenUebersichtRows, renderKontenUebersicht)">Kontonr.</th>
+              <th class="sortable" data-sort-table="konten-uebersicht" data-sort-path="bezeichnung" onclick="sortTable('konten-uebersicht','bezeichnung', kontenUebersichtRows, renderKontenUebersicht)">Bezeichnung</th>
+              <th class="sortable" data-sort-table="konten-uebersicht" data-sort-path="typ" onclick="sortTable('konten-uebersicht','typ', kontenUebersichtRows, renderKontenUebersicht)">Typ</th>
+              <th class="sortable" data-sort-table="konten-uebersicht" data-sort-path="saldo" onclick="sortTable('konten-uebersicht','saldo', kontenUebersichtRows, renderKontenUebersicht)">Saldo (EUR)</th>
+            </tr>
+          </thead>
+          <tbody id="konten-body">
+            <tr><td colspan="4" class="empty"><span class="loading"></span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ BILANZ ══ -->
+    <div id="view-bilanz" class="view">
+      <div class="section-head"><h2>Bilanz</h2><div class="line"></div><span class="hint">Aktiva = Passiva + Jahresergebnis</span></div>
+
+      <div style="display:flex; gap:12px; margin-bottom:16px; align-items:flex-end;">
+        <div class="form-group" style="flex:0 0 260px;">
+          <label>Buchungskreis</label>
+          <select id="bilanz-bukrs" onchange="ladeBilanz()">
+            <option value="">— Alle (global) —</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="bilanz-ausgeglichen" style="margin-bottom:16px;"></div>
+      <div class="bilanz-grid" id="bilanz-grid">
+        <div class="empty"><span class="loading"></span></div>
+      </div>
+    </div>
+
+    <!-- ══ GUV ══ -->
+    <div id="view-guv" class="view">
+      <div class="section-head"><h2>Gewinn- und Verlustrechnung</h2><div class="line"></div><span class="hint">Erlöse − Aufwendungen = Ergebnis</span></div>
+
+      <div style="display:flex; gap:12px; margin-bottom:16px; align-items:flex-end;">
+        <div class="form-group" style="flex:0 0 260px;">
+          <label>Buchungskreis</label>
+          <select id="guv-bukrs" onchange="ladeGuV()">
+            <option value="">— Alle (global) —</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="stat-grid" id="guv-stats" style="margin-bottom:24px;"></div>
+      <div class="bilanz-grid" id="guv-grid"></div>
+    </div>
+
+    <!-- ══ CASHFLOW ══ -->
+    <div id="view-cashflow" class="view">
+      <div class="section-head"><h2>Cash Flow</h2><div class="line"></div><span class="hint">Letzte 30 Tage · Bankkonten 100000–100999</span></div>
+
+      <div style="display:flex; gap:12px; margin-bottom:16px; align-items:flex-end;">
+        <div class="form-group" style="flex:0 0 260px;">
+          <label>Buchungskreis</label>
+          <select id="cf-bukrs" onchange="ladeCashflow()">
+            <option value="">— Alle (global) —</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="stat-grid" id="cf-stats"></div>
+      <div class="section-head"><h2>Bankkonten</h2><div class="line"></div></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Kontonr.</th><th>Bezeichnung</th><th>Saldo (EUR)</th></tr></thead>
+          <tbody id="cf-bankkonten"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ NLP ══ -->
+    <div id="view-nlp" class="view">
+      <div class="section-head"><h2>NLP Buchungsassistent</h2><div class="line"></div><span class="hint">Freitext → Buchungsvorschlag</span></div>
+      <div class="form-card">
+        <div class="form-group" style="margin-bottom:16px;">
+          <label>Freitext</label>
+          <textarea id="nlp-text" placeholder="Beispiel: Miete März 1500 EUR bezahlt&#10;Verkauf Fahrrad 2500 EUR&#10;Gehalt Mitarbeiter 3200 EUR"></textarea>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <button class="btn btn-outline" onclick="nlpAnalysiere()">◇ Analysieren</button>
+          <button class="btn btn-primary" onclick="nlpDirektBuchen()">✦ Direkt buchen</button>
+          <span style="font-size:12px; color:var(--ink-faint);">Analysieren = Vorschau · Buchen = sofort GoBD-konform speichern</span>
+        </div>
+        <div id="nlp-result" class="nlp-result"></div>
+      </div>
+
+      <div class="section-head" style="margin-top:8px;"><h2>Unterstützte Schlüsselwörter</h2><div class="line"></div></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Schlüsselwörter</th><th>Sollkonto</th><th>Habenkonto</th></tr></thead>
+          <tbody>
+            <tr><td>miete, pacht</td><td>600000 – Mietaufwand</td><td>100000 – Bank</td></tr>
+            <tr><td>gehalt, lohn, personal</td><td>420000 – Personalaufwand</td><td>100000 – Bank</td></tr>
+            <tr><td>einkauf, wareneinkauf, lieferant</td><td>400000 – Materialaufwand</td><td>300000 – Verbindlichkeiten aLuL</td></tr>
+            <tr><td>verkauf, umsatz, erlös, rechnung</td><td>100000 – Bank</td><td>800000 – Umsatzerlöse</td></tr>
+            <tr><td>zahlung, einzahlung, kundenzahlung</td><td>100000 – Bank</td><td>120000 – Forderungen</td></tr>
+            <tr><td>strom, energie, gas</td><td>640000 – (Energieaufwand, noch nicht angelegt)</td><td>100000 – Bank</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<div id="toast"></div>
+
+<script src="js/nav.js"></script>
+
+<script>
+// ── NAVIGATION ───────────────────────────────────────────────
+const TITLES = {
+  'dashboard':   ['Dashboard',              'Übersicht'],
+  'buchung-neu': ['Neue Buchung',           'Beleg erfassen'],
+  'journal':     ['Buchungsjournal',        'ACDOCA'],
+  'konten':      ['Kontenübersicht',        'Kontenplan GL00'],
+  'bilanz':      ['Bilanz',                 'Stichtag heute'],
+  'guv':         ['GuV',                    'Gewinn & Verlust'],
+  'cashflow':    ['Cash Flow',              'Liquidität'],
+  'nlp':         ['NLP Assistent',          'Freitext → Buchung'],
+};
+
+// ── State für client-seitiges Re-Sortieren ohne Server-Roundtrip ──────────────
+let journalRows = [];
+let kontenUebersichtRows = [];
+
+function showView(id) {
+  // ÄNDERUNG: View jetzt im URL-Hash spiegeln (z.B. index.html#journal),
+  // damit Links von orgstruktur.html/stammdaten.html/integration.html aus
+  // direkt in die richtige View springen, statt immer auf dem Dashboard
+  // zu landen. Sidebar wird über renderNav() neu gerendert, damit die
+  // Aktiv-Markierung mitwandert.
+  if (location.hash.replace('#', '') !== id) location.hash = id;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+  renderNav('index.html', id);
+  const [title, badge] = TITLES[id] || [id, ''];
+  document.getElementById('topbar-title').textContent = title;
+  document.getElementById('topbar-badge').textContent = badge;
+  // lazy load
+  if (id === 'dashboard')   ladeDashboard();
+  if (id === 'buchung-neu') { ladeRefKonten(); ladeBuchungskreiseDropdown(); setDateDefault('b-datum'); }
+  if (id === 'journal')     ladeJournalView();
+  if (id === 'konten')      ladeKontenUebersicht();
+  if (id === 'bilanz')      ladeBilanzView();
+  if (id === 'guv')         ladeGuVView();
+  if (id === 'cashflow')    ladeCashflowView();
+}
+
+function setDateDefault(id, offsetDays = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  document.getElementById(id).value = d.toISOString().slice(0, 10);
+}
+
+// ── DASHBOARD ────────────────────────────────────────────────
+async function ladeDashboard() {
+  try {
+    const [bilanz, guv, cf, journal] = await Promise.all([
+      api('/api/reporting/bilanz'),
+      api('/api/reporting/guv'),
+      api('/api/reporting/cashflow'),
+      api('/api/buchungen/journal'),
+    ]);
+    document.getElementById('d-aktiva').textContent   = eur(bilanz.sumAktiva);
+    document.getElementById('d-passiva').textContent  = eur(bilanz.sumPassiva);
+    document.getElementById('d-erloes').textContent   = eur(guv.gesamtErloese);
+    document.getElementById('d-aufwand').textContent  = eur(guv.gesamtAufwand);
+    const erg = document.getElementById('d-ergebnis');
+    erg.textContent  = eur(guv.ergebnis);
+    erg.className    = 'stat-value mono ' + (Number(guv.ergebnis) >= 0 ? 'positive' : 'negative');
+    document.getElementById('d-ergebnis-typ').textContent = guv.ergebnisTyp + ' · EUR';
+    document.getElementById('d-kasse').textContent    = eur(cf.kassenbestand);
+
+    const tb   = document.getElementById('dashboard-journal');
+    const rows = journal.slice(0, 10);
+    if (!rows.length) {
+      tb.innerHTML = `<tr><td colspan="6" class="empty">Keine Buchungen vorhanden.</td></tr>`;
+      return;
+    }
+    tb.innerHTML = rows.map(b => `
+      <tr>
+        <td class="mono">${b.belegnummer}</td>
+        <td class="mono">${b.buchungsdatum}</td>
+        <td class="mono" style="text-align:right;">${eur(b.betrag)}</td>
+        <td><span class="tag ${b.sollHaben?.toLowerCase()}">${b.sollHaben}</span></td>
+        <td class="mono">${b.konto?.kontonummer || '—'} ${b.konto?.kontobezeichnung || ''}</td>
+        <td style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${b.buchungstext || ''}</td>
+      </tr>`).join('');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ── JOURNAL ──────────────────────────────────────────────────
+async function ladeJournalView() {
+  await ladeBuchungskreisFilterOptions('j-bukrs');
+  ladeJournal();
+}
+
+async function ladeJournal() {
+  document.getElementById('journal-body').innerHTML =
+    `<tr><td colspan="9" class="empty"><span class="loading"></span></td></tr>`;
+  try {
+    const data = await api('/api/buchungen/journal' + bukrsQuery('j-bukrs'));
+    journalRows = data;
+    renderJournal(journalRows);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function ladeZeitraum() {
+  const von = document.getElementById('j-von').value;
+  const bis = document.getElementById('j-bis').value;
+  if (!von || !bis) { toast('Bitte Von/Bis angeben', 'error'); return; }
+  try {
+    const data = await api(`/api/buchungen/zeitraum?von=${von}&bis=${bis}` + bukrsParam('j-bukrs'));
+    journalRows = data;
+    renderJournal(journalRows);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function renderJournal(data) {
+  const tb = document.getElementById('journal-body');
+  if (!data.length) {
+    tb.innerHTML = `<tr><td colspan="9" class="empty">Keine Buchungen gefunden.</td></tr>`;
+    return;
+  }
+  tb.innerHTML = data.map(b => `
+    <tr>
+      <td class="mono">${b.belegnummer}</td>
+      <td class="mono">${b.buchungsdatum}</td>
+      <td class="mono" style="text-align:right;">${eur(b.betrag)}</td>
+      <td><span class="tag ${b.sollHaben?.toLowerCase()}">${b.sollHaben}</span></td>
+      <td class="mono">${b.buchungskreis?.buchungskreisNr || '—'}</td>
+      <td class="mono">${b.konto?.kontonummer || '—'} · ${b.konto?.kontobezeichnung || ''}</td>
+      <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
+          title="${b.buchungstext}">${b.buchungstext || ''}</td>
+      <td>${b.erfasstVon || '—'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="storno(${b.buchungId})">Storno</button></td>
+    </tr>`).join('');
+}
+
+async function storno(id) {
+  if (!confirm(`Buchung ${id} stornieren? (GoBD: Gegenbuchung wird angelegt)`)) return;
+  try {
+    await api(`/api/buchungen/${id}/storno`, 'POST');
+    toast('Stornobuchung angelegt', 'success');
+    ladeJournal();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ── KONTENÜBERSICHT ───────────────────────────────────────────
+async function ladeKontenUebersicht() {
+  try {
+    const data = await api('/api/reporting/konten');
+    kontenUebersichtRows = data;
+    renderKontenUebersicht(kontenUebersichtRows);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+function renderKontenUebersicht(data) {
+  const tb = document.getElementById('konten-body');
+  if (!data.length) {
+    tb.innerHTML = `<tr><td colspan="4" class="empty">Keine Konten.</td></tr>`;
+    return;
+  }
+  tb.innerHTML = data.map(k => `
+    <tr>
+      <td class="mono">${k.kontonummer}</td>
+      <td>${k.bezeichnung}</td>
+      <td><span class="tag ${k.typ?.toLowerCase()}">${k.typ}</span></td>
+      <td class="mono" style="text-align:right; color:${Number(k.saldo) < 0 ? 'var(--red)' : 'inherit'}">
+        ${eur(k.saldo)}
+      </td>
+    </tr>`).join('');
+}
+
+async function ladeRefKonten() {
+  try {
+    const data = await api('/api/reporting/konten');
+    const tb   = document.getElementById('ref-konten');
+    tb.innerHTML = data.map(k => `
+      <tr>
+        <td class="mono">${k.kontonummer}</td>
+        <td>${k.bezeichnung}</td>
+        <td><span class="tag ${k.typ?.toLowerCase()}">${k.typ}</span></td>
+        <td class="mono" style="text-align:right;">${eur(k.saldo)}</td>
+      </tr>`).join('');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ── BUCHUNGSKREIS-DROPDOWN (Neue Buchung) ─────────────────────
+async function ladeBuchungskreiseDropdown() {
+  try {
+    const data = await api('/api/orgstruktur/buchungskreise');
+    const sel = document.getElementById('b-buchungskreis');
+    const bisheriger = sel.value;
+    sel.innerHTML = '<option value="">— Standard (DE00) —</option>' +
+      data.map(b => `<option value="${b.buchungskreisNr}">${b.buchungskreisNr} – ${b.bezeichnung}</option>`).join('');
+    sel.value = bisheriger;
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ── BUCHUNG ANLEGEN ──────────────────────────────────────────
+async function buchungAnlegen() {
+  const soll   = document.getElementById('b-soll').value;
+  const haben  = document.getElementById('b-haben').value;
+  const betrag = document.getElementById('b-betrag').value;
+  const text   = document.getElementById('b-text').value;
+  const datum  = document.getElementById('b-datum').value;
+  const von    = document.getElementById('b-von').value;
+  const rid    = document.getElementById('b-rechnung').value;
+  const bukrs  = document.getElementById('b-buchungskreis').value;
+
+  if (!soll || !haben || !betrag || !text) {
+    toast('Pflichtfelder ausfüllen', 'error'); return;
+  }
+
+  const body = {
+    sollKontoNr:   parseInt(soll),
+    habenKontoNr:  parseInt(haben),
+    betrag:        parseFloat(betrag),
+    buchungstext:  text,
+    buchungsdatum: datum || today(),
+    erfasstVon:    von || 'System',
+    rechnungId:    rid ? parseInt(rid) : null,
+    buchungskreisNr: bukrs || null,
+  };
+
+  const res = document.getElementById('buchung-result');
+  res.innerHTML = '<span class="loading"></span>';
+  try {
+    const data = await api('/api/buchungen/buchen', 'POST', body);
+    res.innerHTML = `<div class="alert alert-success">
+      ✓ Buchungssatz angelegt · Belegnummern: ${data.map(b => b.belegnummer).join(', ')}
+    </div>`;
+    toast('Buchung gespeichert', 'success');
+    ladeRefKonten();
+  } catch (e) {
+    res.innerHTML = `<div class="alert alert-error">✗ ${e.message}</div>`;
+    toast(e.message, 'error');
+  }
+}
+
+function formReset() {
+  ['b-soll','b-haben','b-betrag','b-text','b-rechnung']
+    .forEach(id => document.getElementById(id).value = '');
+  document.getElementById('b-buchungskreis').value = '';
+  document.getElementById('buchung-result').innerHTML = '';
+}
+
+// ── BILANZ ───────────────────────────────────────────────────
+async function ladeBilanzView() {
+  await ladeBuchungskreisFilterOptions('bilanz-bukrs');
+  ladeBilanz();
+}
+
+async function ladeBilanz() {
+  try {
+    const d   = await api('/api/reporting/bilanz' + bukrsQuery('bilanz-bukrs'));
+    const msg = document.getElementById('bilanz-ausgeglichen');
+    const scope = d.buchungskreis && d.buchungskreis !== 'ALLE'
+      ? ` · Buchungskreis <strong>${d.buchungskreis}</strong>`
+      : ' · alle Buchungskreise';
+    msg.innerHTML = d.ausgeglichen
+      ? `<div class="alert alert-success">✓ Bilanz ist ausgeglichen · Stichtag ${d.stichtag}${scope}</div>`
+      : `<div class="alert alert-error">⚠ Bilanz nicht ausgeglichen!
+           Aktiva: ${eur(d.sumAktiva)} · Passiva: ${eur(d.sumPassivaMitErgebnis)}${scope}</div>`;
+
+    document.getElementById('bilanz-grid').innerHTML = `
+      <div class="bilanz-side">
+        <div class="bilanz-head">Aktiva (Vermögen)</div>
+        ${(d.aktiva || []).map(k =>
+          `<div class="bilanz-row">
+             <span>${k.kontonummer} · ${k.bezeichnung}</span>
+             <span class="mono">${eur(k.saldo)}</span>
+           </div>`).join('')}
+        <div class="bilanz-total"><span>Summe Aktiva</span><span>${eur(d.sumAktiva)}</span></div>
+      </div>
+      <div class="bilanz-side">
+        <div class="bilanz-head passiv">Passiva (Kapital &amp; Verbindlichkeiten)</div>
+        ${(d.passiva || []).map(k =>
+          `<div class="bilanz-row">
+             <span>${k.kontonummer} · ${k.bezeichnung}</span>
+             <span class="mono">${eur(k.saldo)}</span>
+           </div>`).join('')}
+        <div class="bilanz-row" style="font-style:italic;">
+          <span>Jahresergebnis</span>
+          <span class="mono" style="color:${Number(d.jahresergebnis) >= 0 ? 'var(--green)' : 'var(--red)'}">
+            ${eur(d.jahresergebnis)}
+          </span>
+        </div>
+        <div class="bilanz-total"><span>Summe Passiva</span><span>${eur(d.sumPassivaMitErgebnis)}</span></div>
+      </div>`;
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ── GuV ──────────────────────────────────────────────────────
+async function ladeGuVView() {
+  await ladeBuchungskreisFilterOptions('guv-bukrs');
+  ladeGuV();
+}
+
+async function ladeGuV() {
+  try {
+    const d        = await api('/api/reporting/guv' + bukrsQuery('guv-bukrs'));
+    const isGewinn = Number(d.ergebnis) >= 0;
+    const scopeSub = d.buchungskreis && d.buchungskreis !== 'ALLE'
+      ? `Buchungskreis ${d.buchungskreis}`
+      : `alle Buchungskreise`;
+    document.getElementById('guv-stats').innerHTML = `
+      <div class="stat-card green">
+        <div class="stat-label">Gesamterlöse</div>
+        <div class="stat-value mono positive">${eur(d.gesamtErloese)}</div>
+        <div class="stat-sub">EUR · ${d.zeitraum} · ${scopeSub}</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">Aufwendungen</div>
+        <div class="stat-value mono negative">${eur(d.gesamtAufwand)}</div>
+        <div class="stat-sub">EUR</div>
+      </div>
+      <div class="stat-card ${isGewinn ? 'green' : 'red'}">
+        <div class="stat-label">Ergebnis</div>
+        <div class="stat-value mono ${isGewinn ? 'positive' : 'negative'}">${eur(d.ergebnis)}</div>
+        <div class="stat-sub">${d.ergebnisTyp} · EUR</div>
+      </div>`;
+
+    document.getElementById('guv-grid').innerHTML = `
+      <div class="bilanz-side">
+        <div class="bilanz-head" style="background:var(--green);">Erlöse</div>
+        ${(d.erloese || []).map(k =>
+          `<div class="bilanz-row">
+             <span>${k.kontonummer} · ${k.bezeichnung}</span>
+             <span class="mono">${eur(k.saldo)}</span>
+           </div>`).join('')}
+        <div class="bilanz-total"><span>Summe Erlöse</span><span>${eur(d.gesamtErloese)}</span></div>
+      </div>
+      <div class="bilanz-side">
+        <div class="bilanz-head" style="background:var(--red);">Aufwendungen</div>
+        ${(d.aufwendungen || []).map(k =>
+          `<div class="bilanz-row">
+             <span>${k.kontonummer} · ${k.bezeichnung}</span>
+             <span class="mono">${eur(k.saldo)}</span>
+           </div>`).join('')}
+        <div class="bilanz-total"><span>Summe Aufwand</span><span>${eur(d.gesamtAufwand)}</span></div>
+      </div>`;
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ── CASHFLOW ─────────────────────────────────────────────────
+async function ladeCashflowView() {
+  await ladeBuchungskreisFilterOptions('cf-bukrs');
+  ladeCashflow();
+}
+
+async function ladeCashflow() {
+  try {
+    const d     = await api('/api/reporting/cashflow' + bukrsQuery('cf-bukrs'));
+    const netto = Number(d.nettoFluss);
+    const scopeSub = d.buchungskreis && d.buchungskreis !== 'ALLE'
+      ? `Buchungskreis ${d.buchungskreis}`
+      : `alle Buchungskreise`;
+    document.getElementById('cf-stats').innerHTML = `
+      <div class="stat-card">
+        <div class="stat-label">Kassenbestand</div>
+        <div class="stat-value mono">${eur(d.kassenbestand)}</div>
+        <div class="stat-sub">EUR · ${d.stichtag} · ${scopeSub}</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Einnahmen 30 Tage</div>
+        <div class="stat-value mono positive">${eur(d.einnahmen30Tage)}</div>
+        <div class="stat-sub">EUR</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">Ausgaben 30 Tage</div>
+        <div class="stat-value mono negative">${eur(d.ausgaben30Tage)}</div>
+        <div class="stat-sub">EUR</div>
+      </div>
+      <div class="stat-card ${netto >= 0 ? 'green' : 'red'}">
+        <div class="stat-label">Nettofluss</div>
+        <div class="stat-value mono ${netto >= 0 ? 'positive' : 'negative'}">${eur(d.nettoFluss)}</div>
+        <div class="stat-sub">EUR · ${d.zeitraum}</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">Offene Forderungen</div>
+        <div class="stat-value mono">${eur(d.offeneForderungen)}</div>
+        <div class="stat-sub">EUR · Debitoren, noch nicht fällig oder fällig</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">davon überfällig</div>
+        <div class="stat-value mono ${Number(d.ueberfaelligeForderungen) > 0 ? 'negative' : ''}">${eur(d.ueberfaelligeForderungen)}</div>
+        <div class="stat-sub">EUR · Zahlungsziel überschritten</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Offene Verbindlichkeiten</div>
+        <div class="stat-value mono">${eur(d.offeneVerbindlichkeiten)}</div>
+        <div class="stat-sub">EUR · Kreditoren (MM-Eingangsrechnungen)</div>
+      </div>`;
+
+    const tb = document.getElementById('cf-bankkonten');
+    tb.innerHTML = (d.bankKonten || []).map(k => `
+      <tr>
+        <td class="mono">${k.kontonummer}</td>
+        <td>${k.bezeichnung}</td>
+        <td class="mono" style="text-align:right;">${eur(k.saldo)}</td>
+      </tr>`).join('')
+      || `<tr><td colspan="3" class="empty">Keine Bankkonten.</td></tr>`;
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ── NLP ──────────────────────────────────────────────────────
+async function nlpPost(direkt) {
+  const text = document.getElementById('nlp-text').value.trim();
+  if (!text) { toast('Bitte Freitext eingeben', 'error'); return; }
+  const res = document.getElementById('nlp-result');
+  res.className = 'nlp-result show';
+  res.innerHTML = '<span class="loading"></span> Analysiere...';
+
+  try {
+    const body     = { freitext: text, erfasstVon: 'NLP-Assistent', direktBuchen: direkt };
+    const endpoint = direkt ? '/api/nlp/buchen' : '/api/nlp/analysiere';
+    const data     = await api(endpoint, 'POST', body);
+
+    if (Array.isArray(data)) {
+      res.innerHTML =
+        `<div style="color:var(--green); font-weight:600; margin-bottom:8px;">✓ Buchungen angelegt</div>` +
+        data.map(b => `
+          <div class="nlp-prop"><span class="nlp-key">Belegnummer</span><span class="nlp-val">${b.belegnummer}</span></div>
+          <div class="nlp-prop"><span class="nlp-key">Konto</span><span class="nlp-val">${b.konto?.kontonummer} · ${b.konto?.kontobezeichnung}</span></div>
+          <div class="nlp-prop"><span class="nlp-key">S/H</span><span class="nlp-val">${b.sollHaben}</span></div>
+          <div class="nlp-prop" style="margin-bottom:8px;"><span class="nlp-key">Betrag</span><span class="nlp-val">${eur(b.betrag)}</span></div>
+        `).join('<hr style="border:none;border-top:1px solid var(--line);margin:8px 0;">');
+      toast('NLP-Buchung gespeichert', 'success');
+    } else if (data.erfolg) {
+      res.innerHTML = Object.entries(data).map(([k, v]) =>
+        `<div class="nlp-prop"><span class="nlp-key">${k}</span><span class="nlp-val">${v}</span></div>`
+      ).join('');
+    } else {
+      res.innerHTML = `<div style="color:var(--red);">✗ ${data.fehler}</div>`;
+    }
+  } catch (e) {
+    res.innerHTML = `<div style="color:var(--red);">✗ ${e.message}</div>`;
+    toast(e.message, 'error');
+  }
+}
+function nlpAnalysiere()   { nlpPost(false); }
+function nlpDirektBuchen() { nlpPost(true);  }
+
+// ── INIT ─────────────────────────────────────────────────────
+document.getElementById('topbar-date').textContent = new Date().toLocaleDateString('de-DE', {
+  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+});
+
+// ÄNDERUNG: Beim Laden von index.html die gewünschte View aus dem
+// URL-Hash lesen (z.B. index.html#journal, wie es die Sidebar-Links von
+// orgstruktur.html/stammdaten.html/integration.html jetzt erzeugen).
+// Ohne (gültigen) Hash wird wie bisher das Dashboard angezeigt.
+function getViewFromHash() {
+  const h = location.hash.replace('#', '');
+  return TITLES[h] ? h : 'dashboard';
+}
+
+showView(getViewFromHash());
+
+// Reagiert auch auf Browser-Vor/Zurück bzw. wenn sich nur der Hash ändert
+// (z.B. Klick auf einen Sidebar-Link, während man schon auf index.html ist).
+window.addEventListener('hashchange', () => showView(getViewFromHash()));
+</script>
+</body>
+</html>
